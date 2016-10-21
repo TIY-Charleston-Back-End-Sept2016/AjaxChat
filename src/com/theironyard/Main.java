@@ -2,6 +2,7 @@ package com.theironyard;
 
 import jodd.json.JsonParser;
 import jodd.json.JsonSerializer;
+import org.h2.tools.Server;
 import spark.Spark;
 
 import java.sql.*;
@@ -55,11 +56,34 @@ public class Main {
         return null;
     }
 
+    public static int count(Connection conn, String table) throws SQLException {
+        Statement stmt = conn.createStatement();
+        ResultSet results = stmt.executeQuery("SELECT COUNT(*) FROM " + table);
+        if (results.next()) {
+            return results.getInt(1);
+        }
+        return 0;
+    }
+
     public static void main(String[] args) throws SQLException {
+        Server.createWebServer().start();
+
         Connection conn = DriverManager.getConnection("jdbc:h2:./main");
         createTables(conn);
         Spark.externalStaticFileLocation("public");
         Spark.init();
+
+        if (count(conn, "users") == 0) {
+            insertUser(conn, "Alice");
+            insertUser(conn, "Bob");
+        }
+
+        if (count(conn, "messages") == 0) {
+            User alice = selectUser(conn, "Alice");
+            User bob = selectUser(conn, "Bob");
+            insertMessage(conn, "Hello guys!", alice.id);
+            insertMessage(conn, "Hey Alice!", bob.id);
+        }
 
         Spark.get(
                 "/messages",
